@@ -1,0 +1,8 @@
+import { defineWebExtConfig } from 'wxt';
+
+// local config, not tracked by git
+export default defineWebExtConfig({
+  binaries: {
+    chrome: 'brave',
+  },
+});
