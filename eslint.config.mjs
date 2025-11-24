@@ -14,5 +14,5 @@ export default defineConfig(
   eslintPluginReact.configs.flat.recommended,
   eslintPluginReact.configs.flat['jsx-runtime'],
   autoImports,
-  { ignores: ['.wxt/**'] }
+  { ignores: ['.wxt/**', '.output/**'] }
 );
