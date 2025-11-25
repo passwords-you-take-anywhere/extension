@@ -1,24 +1,26 @@
 import { createHashRouter, redirect } from 'react-router';
-import AuthPage from './pages/auth';
 import GeneratorPage from './pages/generator';
-import Layout from './pages/layout';
+import RootLayout from './pages/root-layout';
 import VaultPage from './pages/vault';
 import { isActiveTabPathValid, normalizeActiveTabPath } from './utils';
-import { ACTIVE_TAB_KEY, SESSION_ID_KEY } from './const';
+import { ACTIVE_TAB_STORAGE_KEY, TOKEN_STORAGE_KEY } from '@/lib/const';
+import AuthLayout from './pages/auth/auth-layout';
+import LoginPage from './pages/auth/login';
+import RegisterPage from './pages/auth/register';
 
 export const router = createHashRouter([
   {
-    element: <Layout />,
+    element: <RootLayout />,
     children: [
       { index: true, element: <VaultPage /> },
       { path: '/generator', element: <GeneratorPage /> },
     ],
     loader: async ({ request: { url } }) => {
-      const [sessionId, activeTab] = await Promise.all([
-        storage.getItem<string>(SESSION_ID_KEY),
-        storage.getItem<string>(ACTIVE_TAB_KEY),
+      const [token, activeTab] = await Promise.all([
+        storage.getItem<string>(TOKEN_STORAGE_KEY),
+        storage.getItem<string>(ACTIVE_TAB_STORAGE_KEY),
       ]);
-      if (!sessionId) {
+      if (!token) {
         return redirect('/auth');
       }
       if (activeTab && !isActiveTabPathValid(url, activeTab)) {
@@ -29,6 +31,20 @@ export const router = createHashRouter([
   },
   {
     path: '/auth',
-    element: <AuthPage />,
+    element: <AuthLayout />,
+    children: [
+      {
+        index: true,
+        loader: () => redirect('/auth/login'),
+      },
+      {
+        path: 'login',
+        element: <LoginPage />,
+      },
+      {
+        path: 'register',
+        element: <RegisterPage />,
+      },
+    ],
   },
 ]);
