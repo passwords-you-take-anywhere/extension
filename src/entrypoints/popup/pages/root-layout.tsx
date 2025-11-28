@@ -1,21 +1,21 @@
 import { RectangleEllipsisIcon, VaultIcon } from 'lucide-react';
 import { Link, Outlet, useLoaderData } from 'react-router';
-import { Tabs, TabsList, TabsTrigger } from '../../../components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PopupBox from '../components/popup-box';
 import { RootLoaderProps } from '../types/routes';
-import { ACTIVE_TAB_KEY } from '../const';
+import { ACTIVE_TAB_STORAGE_KEY } from '@/lib/const';
 
-export default function Layout() {
+export default function RootLayout() {
   const { activeTab: initialActiveTab } = useLoaderData<RootLoaderProps>();
   const [activeTab, setActiveTab] = useState(initialActiveTab || 'vault');
 
   function handleTabChange(tab: string) {
     setActiveTab(tab);
-    storage.setItem(ACTIVE_TAB_KEY, tab);
+    storage.setItem(ACTIVE_TAB_STORAGE_KEY, tab);
   }
   return (
     <PopupBox>
-      <main>
+      <main className="p-4">
         <Outlet />
       </main>
       <nav>
