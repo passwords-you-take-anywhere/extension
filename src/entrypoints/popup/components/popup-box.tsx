@@ -1,9 +1,17 @@
-import { PropsWithChildren } from 'react';
+import { ACTIVE_TAB_STORAGE_KEY } from '@/lib';
+import { useEffect } from 'react';
+import { Outlet, useLocation } from 'react-router';
 
-export default function PopupBox({ children }: PropsWithChildren) {
+export default function PopupBox() {
+  const { pathname } = useLocation();
+  console.log(pathname, 'pathname');
+  useEffect(() => {
+    storage.setItem(ACTIVE_TAB_STORAGE_KEY, pathname);
+  }, [pathname]);
+
   return (
-    <div className="min-w-xs min-h-128 flex flex-col justify-between dark bg-background text-foreground">
-      {children}
+    <div className="dark bg-background text-foreground flex h-128 w-xs flex-col justify-between">
+      <Outlet />
     </div>
   );
 }

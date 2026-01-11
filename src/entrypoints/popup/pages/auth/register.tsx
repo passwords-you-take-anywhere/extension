@@ -68,7 +68,9 @@ export default function RegisterPage() {
             Create Account
           </FieldLegend>
           <FieldDescription className="text-muted-foreground">
-            Register to create your <strong>Pyta</strong> vault
+            Register to create your{' '}
+            <strong style={{ viewTransitionName: 'pyta-text' }}>Pyta</strong>{' '}
+            vault
           </FieldDescription>
         </Field>
 
@@ -144,7 +146,7 @@ export default function RegisterPage() {
             }}
           />
 
-          <Field className="pt-3">
+          <Field className="pt-3" style={{ viewTransitionName: 'auth-button' }}>
             <Button type="submit" size="lg" className="w-full font-semibold">
               Create Account
             </Button>
