@@ -56,7 +56,8 @@ export default function LoginPage() {
             Welcome Back
           </FieldLegend>
           <FieldDescription className="text-muted-foreground">
-            Enter credentials to access your <strong>Pyta</strong>
+            Enter credentials to access your{' '}
+            <strong style={{ viewTransitionName: 'pyta-text' }}>Pyta</strong>
           </FieldDescription>
         </Field>
 
@@ -110,7 +111,7 @@ export default function LoginPage() {
             }}
           />
 
-          <Field className="pt-3">
+          <Field className="pt-3" style={{ viewTransitionName: 'auth-button' }}>
             <Button type="submit" size="lg" className="w-full font-semibold">
               Log In
             </Button>
