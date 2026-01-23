@@ -1,3 +1,4 @@
+import { VaultItem } from '@/types/vault';
 import { argon2id } from 'hash-wasm';
 import { CompactEncrypt, compactDecrypt } from 'jose';
 
@@ -106,4 +107,84 @@ export async function decryptVaultKey(
 export function stringToUint8Array(str: string): Uint8Array {
   const numbers = str.split(',').map((num) => +num.trim());
   return new Uint8Array(numbers);
+}
+
+/**
+ * Encrypts vault item data using the symmetric vault key with A256GCM
+ * @param {string} data - The plain text data to encrypt (e.g., password, username, etc.)
+ * @param {Uint8Array} symmetricKey - The 256-bit symmetric vault key
+ * @returns {Promise<string>} JWE compact serialization of encrypted data
+ */
+async function encryptVaultString(
+  data: string,
+  symmetricKey: Uint8Array
+): Promise<string> {
+  const encoder = new TextEncoder();
+  const plaintext = encoder.encode(data);
+
+  // Encrypt using CompactEncrypt with A256GCM
+  const jwe = await new CompactEncrypt(plaintext)
+    .setProtectedHeader({ alg: 'dir', enc: 'A256GCM' })
+    .encrypt(symmetricKey);
+
+  return jwe;
+}
+
+/**
+ * Decrypts vault item data using the symmetric vault key
+ * @param {string} jwe - The encrypted JWE string
+ * @param {Uint8Array} symmetricKey - The 256-bit symmetric vault key
+ * @returns {Promise<string>} The decrypted plain text data
+ */
+async function decryptVaultString(
+  jwe: string,
+  symmetricKey: Uint8Array
+): Promise<string> {
+  // Decrypt
+  const { plaintext } = await compactDecrypt(jwe, symmetricKey);
+
+  // Convert back to string
+  const decoder = new TextDecoder();
+  return decoder.decode(plaintext);
+}
+
+export async function encryptVaultItem(
+  item: VaultItem,
+  vaultKey: Uint8Array
+): Promise<VaultItem> {
+  const [username_data, password_data, notes, domains] = await Promise.all([
+    encryptVaultString(item.username_data, vaultKey),
+    encryptVaultString(item.password_data, vaultKey),
+    encryptVaultString(item.notes, vaultKey),
+    Promise.all(
+      item.domains.map((domain) => encryptVaultString(domain, vaultKey))
+    ),
+  ]);
+  return {
+    ...item,
+    username_data,
+    password_data,
+    notes,
+    domains,
+  };
+}
+
+export function decryptVaultItem(
+  item: VaultItem,
+  vaultKey: Uint8Array
+): Promise<VaultItem> {
+  return Promise.all([
+    decryptVaultString(item.username_data, vaultKey),
+    decryptVaultString(item.password_data, vaultKey),
+    decryptVaultString(item.notes, vaultKey),
+    Promise.all(
+      item.domains.map((domain) => decryptVaultString(domain, vaultKey))
+    ),
+  ]).then(([username_data, password_data, notes, domains]) => ({
+    ...item,
+    username_data,
+    password_data,
+    notes,
+    domains,
+  }));
 }

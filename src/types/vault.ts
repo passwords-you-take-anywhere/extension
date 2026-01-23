@@ -29,7 +29,7 @@ export type VaultKeyRequestResponse = {
 export interface LocalVaultChanges {
   creates: VaultItem[];
   updates: VaultItem[];
-  deletes: VaultItem[];
+  deletes: Pick<VaultItem, 'id' | 'updated'>[];
 }
 
 export interface SyncPushResponse {

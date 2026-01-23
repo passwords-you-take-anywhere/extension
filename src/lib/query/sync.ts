@@ -1,11 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
-import { LAST_SYNC_STORAGE_KEY, VAULT_STORAGE_KEY } from '../../const';
+import {
+  LAST_SYNC_STORAGE_KEY,
+  VAULT_KEY_STORAGE_KEY,
+  VAULT_STORAGE_KEY,
+} from '../../const';
 import {
   LocalVaultChanges,
   SyncChangesResponse,
   SyncPushResponse,
   VaultItem,
 } from '@/types/vault';
+import {
+  decryptVaultItem,
+  encryptVaultItem,
+  stringToUint8Array,
+} from '../hash';
 
 function findLocalChanges(
   currentVault: VaultItem[],
@@ -38,7 +47,10 @@ function findLocalChanges(
   );
 }
 
-async function syncChanges(lastSync?: string | null) {
+async function syncGetChanges(
+  vaultKey: Uint8Array,
+  lastSync?: string | null
+): Promise<VaultItem[]> {
   if (!import.meta.env.WXT_API_URL) {
     throw new Error('WXT_API_URL env variable is not defined.');
   }
@@ -59,21 +71,39 @@ async function syncChanges(lastSync?: string | null) {
       `[${res.status}] sync changes request failed:\n ${await res.text()}`
     );
   }
+  const { changes } = (await res.json()) as SyncChangesResponse;
+  const decryptedChanges = await Promise.all(
+    changes.map((item) => decryptVaultItem(item, vaultKey))
+  );
 
-  return res.json() as Promise<SyncChangesResponse>;
+  return decryptedChanges;
 }
 
-async function syncPush(changes: LocalVaultChanges) {
+async function syncPushChanges(
+  vaultKey: Uint8Array,
+  { creates, deletes, updates }: LocalVaultChanges
+) {
   if (!import.meta.env.WXT_API_URL) {
     throw new Error('WXT_API_URL env variable is not defined.');
   }
+
+  const encryptedChanges: LocalVaultChanges = {
+    creates: await Promise.all(
+      creates.map((item) => encryptVaultItem(item, vaultKey))
+    ),
+    updates: await Promise.all(
+      updates.map((item) => encryptVaultItem(item, vaultKey))
+    ),
+    deletes,
+  };
+
   const url = new URL(`${import.meta.env.WXT_API_URL}/sync/push`);
   const res = await fetch(url.toString(), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(changes),
+    body: JSON.stringify(encryptedChanges),
     credentials: 'include',
   });
 
@@ -117,8 +147,17 @@ export function useSync() {
     queryKey: ['syncChanges'],
     queryFn: async () => {
       const lastSync = await storage.getItem<string>(LAST_SYNC_STORAGE_KEY);
+      const vaultKeyString = await storage.getItem<string>(
+        VAULT_KEY_STORAGE_KEY
+      );
 
-      const { changes } = await syncChanges(lastSync);
+      if (!vaultKeyString) {
+        throw new Error('Vault key not found in storage');
+      }
+
+      const vaultKey = stringToUint8Array(vaultKeyString);
+
+      const changes = await syncGetChanges(vaultKey, lastSync);
 
       if (!lastSync) {
         await storage.setItems([
@@ -141,7 +180,7 @@ export function useSync() {
       );
 
       // TODO: don't throw in offline mode
-      await syncPush({ creates, updates, deletes });
+      await syncPushChanges(vaultKey, { creates, updates, deletes });
       await storage.setItem(LAST_SYNC_STORAGE_KEY, new Date().toISOString());
 
       const updatedVault = updateVault(existingVault, changes);
