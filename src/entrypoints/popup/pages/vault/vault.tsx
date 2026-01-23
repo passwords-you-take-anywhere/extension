@@ -18,7 +18,11 @@ function filterItems(items: VaultItem[], search: string) {
 
 export default function VaultPage() {
   const [search, setSearch] = useState('');
-  const { data, isSuccess } = useSync();
+  const { data, isSuccess, isError } = useSync();
+
+  if (isError) {
+    return <div className="text-red-500">Error syncing vault data.</div>;
+  }
 
   return (
     <div className="flex flex-col">

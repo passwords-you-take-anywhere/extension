@@ -51,6 +51,9 @@ async function vaultKeyRequest(props: {
 async function vaultKeyRequest(
   props: VaultKeyRequestProps
 ): Promise<VaultKeyRequestResponse> {
+  if (!import.meta.env.WXT_API_URL) {
+    throw new Error('WXT_API_URL env variable is not defined.');
+  }
   const response = await fetch(
     `${import.meta.env.WXT_API_URL}/auth/vault-key`,
     {
@@ -94,7 +97,7 @@ export function useLogin() {
       return { session_id, masterKey, vaultKey };
     },
     onSuccess: (data) => {
-      storage.setItems([
+      return storage.setItems([
         { key: TOKEN_STORAGE_KEY, value: data.session_id },
         { key: VAULT_KEY_STORAGE_KEY, value: data.vaultKey.toString() },
       ]);
@@ -118,7 +121,7 @@ export function useRegister() {
       return { session_id, masterKey, vaultKey };
     },
     onSuccess: (data) => {
-      storage.setItems([
+      return storage.setItems([
         { key: TOKEN_STORAGE_KEY, value: data.session_id },
         { key: VAULT_KEY_STORAGE_KEY, value: data.vaultKey.toString() },
       ]);

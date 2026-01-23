@@ -6,7 +6,7 @@ export async function createHighEntropyHash(password: string, salt: string) {
     password,
     salt,
     parallelism: 1,
-    iterations: 1,
+    iterations: 1, // try to find a balance between speed and security later
     memorySize: 512, // use 512KB memory
     hashLength: 32, // output size = 32 bytes
   });
@@ -90,10 +90,10 @@ export async function decryptVaultKey(
   // Decrypt
   const { plaintext } = await compactDecrypt(jwe, encryptionKeyBytes);
 
-  // Split back into symmetric key (first 64 bytes) and IV (last 16 bytes)
+  // Split back into symmetric key (first 32 bytes) and IV (last 16 bytes)
   const decrypted = new Uint8Array(plaintext);
-  const symmetricKey = decrypted.slice(0, 64);
-  const initializationVector = decrypted.slice(64, 80);
+  const symmetricKey = decrypted.slice(0, 32);
+  const initializationVector = decrypted.slice(32, 48);
 
   return { symmetricKey, initializationVector };
 }

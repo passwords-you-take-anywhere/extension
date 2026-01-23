@@ -135,18 +135,17 @@ export function useSync() {
         throw new Error('Existing vault not found');
       }
 
-      const updatedVault = updateVault(existingVault, changes);
-
       const { creates, deletes, updates } = findLocalChanges(
         existingVault,
         lastSync
       );
 
-      await storage.setItem(VAULT_STORAGE_KEY, updatedVault);
-
+      // TODO: don't throw in offline mode
       await syncPush({ creates, updates, deletes });
-
       await storage.setItem(LAST_SYNC_STORAGE_KEY, new Date().toISOString());
+
+      const updatedVault = updateVault(existingVault, changes);
+      await storage.setItem(VAULT_STORAGE_KEY, updatedVault);
 
       return updatedVault;
     },

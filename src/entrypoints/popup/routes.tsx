@@ -59,7 +59,9 @@ export const router = createHashRouter([
                     await storage.getItem<VaultItem[]>(VAULT_STORAGE_KEY);
 
                   const item = items?.find((i) => i.id === params.id);
-
+                  if (!item) {
+                    return redirect('/vault');
+                  }
                   return { item };
                 },
               },
@@ -71,7 +73,9 @@ export const router = createHashRouter([
                     await storage.getItem<VaultItem[]>(VAULT_STORAGE_KEY);
 
                   const item = items?.find((i) => i.id === params.id);
-
+                  if (!item) {
+                    return redirect('/vault');
+                  }
                   return { item };
                 },
               },
