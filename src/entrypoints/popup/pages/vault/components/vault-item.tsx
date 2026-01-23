@@ -5,7 +5,7 @@ import {
   ItemDescription,
   ItemTitle,
 } from '@/components/ui/item';
-import { VaultItem } from '@/entrypoints/popup/types';
+import { VaultItem } from '@/types/vault';
 import CopyDropdown from './copy-dropdown';
 import { Link } from 'react-router';
 import EditDropdown from './edit-dropdown';
@@ -34,7 +34,7 @@ export default function VaultListItem({ item }: VaultItemProps) {
       </ItemMedia> */}
       <ItemContent className="gap-1">
         <Link to={`/vault/${item.id}`} viewTransition>
-          <ItemTitle>{renderText(item.username)}</ItemTitle>
+          <ItemTitle>{renderText(item.username_data)}</ItemTitle>
           <ItemDescription>
             {item.domains.map((d) => (
               <div key={d}>{renderText(d)}</div>
@@ -43,7 +43,10 @@ export default function VaultListItem({ item }: VaultItemProps) {
         </Link>
       </ItemContent>
       <ItemActions>
-        <CopyDropdown username={item.username} password={item.password} />
+        <CopyDropdown
+          username={item.username_data}
+          password={item.password_data}
+        />
         <EditDropdown id={item.id} />
       </ItemActions>
     </Item>

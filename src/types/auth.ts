@@ -4,5 +4,18 @@ export interface AuthRequest {
 }
 
 export interface AuthResponse {
-  token: string;
+  session_id: string;
 }
+
+export type VaultKeyRequestProps =
+  | {
+      method: 'GET';
+    }
+  | {
+      method: 'POST';
+      encryptedVaultKey: string;
+    };
+
+export type VaultKeyRequestResponse = {
+  encrypted_vault_key: string;
+} | void;

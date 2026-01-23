@@ -1,21 +1,33 @@
 import { useState } from 'react';
 import Search from './components/search';
 import VaultList from './components/vault-list';
-import { useLoaderData } from 'react-router';
-import { VaultItem } from '../../types';
+import { VaultItem } from '@/types/vault';
+import { useSync } from '@/lib/query/sync';
+import { VaultListSkeleton } from '@/components/ui/skeleton';
+
+function filterItems(items: VaultItem[], search: string) {
+  if (search.trim() === '') {
+    return items;
+  }
+  return items.filter(
+    (item) =>
+      item.domains.some((domain) => domain.includes(search)) ||
+      item.username_data.includes(search)
+  );
+}
 
 export default function VaultPage() {
   const [search, setSearch] = useState('');
-  const { items } = useLoaderData<{ items: VaultItem[] }>();
-
-  const filteredItems = items.filter((item) =>
-    item.username.toLowerCase().includes(search.toLowerCase())
-  );
+  const { data, isSuccess } = useSync();
 
   return (
     <div className="flex flex-col">
       <Search value={search} onChange={setSearch} />
-      <VaultList items={filteredItems} />
+      {isSuccess ? (
+        <VaultList items={filterItems(data, search)} />
+      ) : (
+        <VaultListSkeleton />
+      )}
     </div>
   );
 }

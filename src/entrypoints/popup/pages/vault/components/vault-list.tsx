@@ -1,5 +1,5 @@
 import { ItemGroup, ItemSeparator } from '@/components/ui/item';
-import { VaultItem } from '@/entrypoints/popup/types';
+import { VaultItem } from '@/types/vault';
 import VaultListItem from './vault-item';
 
 interface VaultListProps {
