@@ -1,4 +1,8 @@
-import { ACTIVE_TAB_STORAGE_KEY, TOKEN_STORAGE_KEY } from '@/lib/const';
+import {
+  ACTIVE_TAB_STORAGE_KEY,
+  TOKEN_STORAGE_KEY,
+  VAULT_STORAGE_KEY,
+} from '@/const';
 import { createHashRouter, LoaderFunctionArgs, redirect } from 'react-router';
 import AuthLayout from './pages/auth/auth-layout';
 import LoginPage from './pages/auth/login';
@@ -9,9 +13,9 @@ import EditPage from './pages/vault/edit';
 import NewPage from './pages/vault/new';
 import VaultPage from './pages/vault/vault';
 import ViewPage from './pages/vault/view';
-import { getPathname } from './utils';
+import { getPathname } from '@/lib/utils';
 import PopupBox from './components/popup-box';
-import { dummyItems } from '@/lib/temp-data';
+import { VaultItem } from '@/types/vault';
 
 async function rootLoader({ request: { url } }: LoaderFunctionArgs) {
   const [token, activeTab] = await Promise.all([
@@ -42,7 +46,6 @@ export const router = createHashRouter([
               {
                 index: true,
                 element: <VaultPage />,
-                loader: async () => ({ items: dummyItems }),
               },
               {
                 path: 'new',
@@ -52,8 +55,13 @@ export const router = createHashRouter([
                 path: ':id',
                 element: <ViewPage />,
                 loader: async ({ params }) => {
-                  const item = dummyItems.find((i) => i.id === params.id);
+                  const items =
+                    await storage.getItem<VaultItem[]>(VAULT_STORAGE_KEY);
 
+                  const item = items?.find((i) => i.id === params.id);
+                  if (!item) {
+                    return redirect('/vault');
+                  }
                   return { item };
                 },
               },
@@ -61,8 +69,13 @@ export const router = createHashRouter([
                 path: ':id/edit',
                 element: <EditPage />,
                 loader: async ({ params }) => {
-                  const item = dummyItems.find((i) => i.id === params.id);
+                  const items =
+                    await storage.getItem<VaultItem[]>(VAULT_STORAGE_KEY);
 
+                  const item = items?.find((i) => i.id === params.id);
+                  if (!item) {
+                    return redirect('/vault');
+                  }
                   return { item };
                 },
               },

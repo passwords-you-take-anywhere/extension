@@ -4,5 +4,5 @@ export interface AuthRequest {
 }
 
 export interface AuthResponse {
-  token: string;
+  session_id: string;
 }

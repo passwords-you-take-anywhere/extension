@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { VaultItem } from '@/entrypoints/popup/types';
+import { VaultItem } from '@/types/vault';
 import { useForm } from '@tanstack/react-form';
 import {
   ArrowLeftIcon,
@@ -24,8 +24,8 @@ import { Link } from 'react-router';
 import { z } from 'zod';
 
 const formSchema = z.object({
-  username: z.string().nonempty('Username is required.'),
-  password: z.string().nonempty('Password is required.'),
+  username_data: z.string().nonempty('Username is required.'),
+  password_data: z.string().nonempty('Password is required.'),
   domains: z.array(z.string()),
   notes: z.string(),
 });
@@ -44,20 +44,19 @@ export default function VaultForm({ mode, item, onSubmit }: VaultFormProps) {
 
   const form = useForm({
     defaultValues: {
-      username: item?.username ?? '',
-      password: item?.password ?? '',
+      username_data: item?.username_data ?? '',
+      password_data: item?.password_data ?? '',
       domains: item?.domains ?? [''],
       notes: item?.notes ?? '',
     },
     validators: {
       onSubmit: formSchema,
     },
-    onSubmit: ({ value }) => {
+    onSubmit: async ({ value }) => {
       const cleanedValue = {
         ...value,
         domains: value.domains.filter((d) => d.trim() !== ''),
       };
-      console.log(cleanedValue, 'cleanedValue');
       onSubmit?.(cleanedValue);
     },
   });
@@ -96,7 +95,7 @@ export default function VaultForm({ mode, item, onSubmit }: VaultFormProps) {
       <FieldSet className="gap-6 px-4 pb-4">
         <FieldGroup className="gap-4">
           <form.Field
-            name="username"
+            name="username_data"
             children={(field) => {
               const isInvalid =
                 field.state.meta.isTouched && !field.state.meta.isValid;
@@ -120,7 +119,7 @@ export default function VaultForm({ mode, item, onSubmit }: VaultFormProps) {
           />
 
           <form.Field
-            name="password"
+            name="password_data"
             children={(field) => {
               const isInvalid =
                 field.state.meta.isTouched && !field.state.meta.isValid;

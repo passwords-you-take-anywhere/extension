@@ -1,4 +1,4 @@
-import { ACTIVE_TAB_STORAGE_KEY } from '@/lib';
+import { ACTIVE_TAB_STORAGE_KEY } from '@/const';
 import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router';
 

@@ -12,7 +12,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { z } from 'zod';
 import { useForm } from '@tanstack/react-form';
-import { useLogin } from '@/lib/query';
+import { useLogin } from '@/lib/query/auth';
 import { useNavigate } from 'react-router';
 
 const formSchema = z.object({
