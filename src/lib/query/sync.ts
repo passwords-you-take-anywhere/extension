@@ -142,51 +142,50 @@ function updateVault(vault: VaultItem[], changes: VaultItem[]) {
   return [...updatedVault, ...newItems];
 }
 
+export async function syncVault() {
+  const lastSync = await storage.getItem<string>(LAST_SYNC_STORAGE_KEY);
+  const vaultKeyString = await storage.getItem<string>(VAULT_KEY_STORAGE_KEY);
+
+  if (!vaultKeyString) {
+    throw new Error('Vault key not found in storage');
+  }
+
+  const vaultKey = stringToUint8Array(vaultKeyString);
+
+  const changes = await syncGetChanges(vaultKey, lastSync);
+
+  if (!lastSync) {
+    await storage.setItems([
+      { key: VAULT_STORAGE_KEY, value: changes },
+      { key: LAST_SYNC_STORAGE_KEY, value: new Date().toISOString() },
+    ]);
+    return changes;
+  }
+
+  const existingVault = await storage.getItem<VaultItem[]>(VAULT_STORAGE_KEY);
+
+  if (!existingVault) {
+    throw new Error('Existing vault not found');
+  }
+
+  const { creates, deletes, updates } = findLocalChanges(
+    existingVault,
+    lastSync
+  );
+
+  // TODO: don't throw in offline mode
+  await syncPushChanges(vaultKey, { creates, updates, deletes });
+  await storage.setItem(LAST_SYNC_STORAGE_KEY, new Date().toISOString());
+
+  const updatedVault = updateVault(existingVault, changes);
+  await storage.setItem(VAULT_STORAGE_KEY, updatedVault);
+
+  return updatedVault;
+}
+
 export function useSync() {
   return useQuery({
     queryKey: ['syncChanges'],
-    queryFn: async () => {
-      const lastSync = await storage.getItem<string>(LAST_SYNC_STORAGE_KEY);
-      const vaultKeyString = await storage.getItem<string>(
-        VAULT_KEY_STORAGE_KEY
-      );
-
-      if (!vaultKeyString) {
-        throw new Error('Vault key not found in storage');
-      }
-
-      const vaultKey = stringToUint8Array(vaultKeyString);
-
-      const changes = await syncGetChanges(vaultKey, lastSync);
-
-      if (!lastSync) {
-        await storage.setItems([
-          { key: VAULT_STORAGE_KEY, value: changes },
-          { key: LAST_SYNC_STORAGE_KEY, value: new Date().toISOString() },
-        ]);
-        return changes;
-      }
-
-      const existingVault =
-        await storage.getItem<VaultItem[]>(VAULT_STORAGE_KEY);
-
-      if (!existingVault) {
-        throw new Error('Existing vault not found');
-      }
-
-      const { creates, deletes, updates } = findLocalChanges(
-        existingVault,
-        lastSync
-      );
-
-      // TODO: don't throw in offline mode
-      await syncPushChanges(vaultKey, { creates, updates, deletes });
-      await storage.setItem(LAST_SYNC_STORAGE_KEY, new Date().toISOString());
-
-      const updatedVault = updateVault(existingVault, changes);
-      await storage.setItem(VAULT_STORAGE_KEY, updatedVault);
-
-      return updatedVault;
-    },
+    queryFn: async () => syncVault(),
   });
 }
