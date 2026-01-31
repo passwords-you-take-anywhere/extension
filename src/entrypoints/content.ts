@@ -7,8 +7,6 @@ export default defineContentScript({
   runAt: 'document_end',
   world: 'ISOLATED',
   main() {
-    console.log('PYTA: Content script loaded on:', window.location.href);
-
     // Wait for body to be ready
     if (document.body) {
       initAutofill();
@@ -25,7 +23,6 @@ export default defineContentScript({
 });
 
 function initAutofill() {
-  console.log('PYTA: initAutofill called');
 
   // Detect forms on page load
   detectAndAttachAutofill();
@@ -57,7 +54,6 @@ function detectAndAttachAutofill() {
     // Find associated username field (email or text input before password)
     const usernameField = findUsernameField(passwordField);
 
-    console.log('Username field found:', usernameField);
 
     if (usernameField) {
       // Skip if username field already has dropdown attached
@@ -80,7 +76,6 @@ function findUsernameField(
     )
   );
 
-  console.log(`Found ${candidates.length} potential username fields`);
 
   // Find the closest input before the password field
   for (let i = candidates.length - 1; i >= 0; i--) {
@@ -93,12 +88,6 @@ function findUsernameField(
       candidate.compareDocumentPosition(passwordField) &
       Node.DOCUMENT_POSITION_FOLLOWING
     ) {
-      console.log('Selected username field:', {
-        id: candidate.id,
-        name: candidate.name,
-        type: candidate.type,
-        placeholder: candidate.placeholder,
-      });
       return candidate;
     }
   }
@@ -136,19 +125,15 @@ async function getMatchingCredentials(): Promise<VaultItem[]> {
     const currentDomain = extractDomain(window.location.href);
     if (!currentDomain) return [];
 
-    console.log('PYTA: Current domain:', currentDomain);
-
     // Get vault from storage (already decrypted)
     const vaultData = await storage.getItem('local:vault');
 
     if (!vaultData) {
-      console.log('PYTA: No vault data found in storage');
       return [];
     }
 
     // Vault items are already decrypted in storage
     const vault = vaultData as VaultItem[];
-    console.log('PYTA: Found', vault.length, 'vault items');
 
     // Filter matching items
     const matchingItems = vault.filter((item) => {
@@ -159,7 +144,6 @@ async function getMatchingCredentials(): Promise<VaultItem[]> {
       });
     });
 
-    console.log('PYTA: Found', matchingItems.length, 'matching credentials');
     return matchingItems;
   } catch (error) {
     console.error('Error getting credentials:', error);
@@ -199,8 +183,6 @@ function showAutofillDropdown(
 
   // Append to body
   document.body.appendChild(dropdown);
-
-  console.log('PYTA: Dropdown appended to body', dropdown);
 
   // Close on click outside - delay to avoid immediate close from focus click
   setTimeout(() => {
@@ -268,14 +250,6 @@ function fillCredentials(
   passwordField: HTMLInputElement,
   credential: VaultItem
 ) {
-  console.log('PYTA: Filling credentials', {
-    username: credential.username_data,
-    usernameField: usernameField,
-    passwordField: passwordField,
-    usernameVisible: usernameField.offsetParent !== null,
-    passwordVisible: passwordField.offsetParent !== null,
-  });
-
   // Use native setter to bypass React/framework controls
   const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
     window.HTMLInputElement.prototype,

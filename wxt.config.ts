@@ -13,16 +13,9 @@ export default defineConfig({
     plugins: [tailwindcss()],
   }),
   manifest: {
-    permissions: ['storage', 'activeTab', 'tabs'],
+    permissions: ['storage'],
     host_permissions: [
       '<all_urls>', // Allows the extension to interact with all websites
-    ],
-    content_scripts: [
-      {
-        matches: ['<all_urls>'],
-        js: ['content-scripts/content.js'],
-        run_at: 'document_end',
-      },
     ],
   },
 });
