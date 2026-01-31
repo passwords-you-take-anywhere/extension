@@ -1,8 +1,8 @@
 {
-  "name": "passwords-you-take-anywhere",
-  "description": "a shitty password manager",
+  "name": "PYTA Password Manager",
+  "description": "A shitty password manager",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "wxt",
