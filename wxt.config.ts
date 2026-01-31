@@ -14,5 +14,8 @@ export default defineConfig({
   }),
   manifest: {
     permissions: ['storage'],
+    host_permissions: [
+      '<all_urls>', // Allows the extension to interact with all websites
+    ],
   },
 });
