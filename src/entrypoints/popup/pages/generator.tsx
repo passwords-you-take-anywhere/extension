@@ -1,10 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  CheckIcon,
-  CopyIcon,
-  RefreshCwIcon,
-  RectangleEllipsisIcon,
-} from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { CheckIcon, CopyIcon, RefreshCwIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Field,
@@ -13,14 +8,15 @@ import {
   FieldLabel,
   FieldLegend,
   FieldSet,
-  FieldTitle,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
 
 const MIN_LENGTH = 5;
 const MAX_LENGTH = 128;
 const DEFAULT_LENGTH = 14;
+const COPY_FEEDBACK_DURATION = 1500;
 
 const UPPERCASE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const LOWERCASE = 'abcdefghijklmnopqrstuvwxyz';
@@ -61,6 +57,16 @@ function shuffle(chars: string[]) {
   return chars;
 }
 
+type PasswordOptions = {
+  length: number;
+  includeUppercase: boolean;
+  includeLowercase: boolean;
+  includeNumbers: boolean;
+  includeSpecial: boolean;
+  minNumbers: number;
+  minSpecial: number;
+};
+
 function generatePassword({
   length,
   includeUppercase,
@@ -69,15 +75,7 @@ function generatePassword({
   includeSpecial,
   minNumbers,
   minSpecial,
-}: {
-  length: number;
-  includeUppercase: boolean;
-  includeLowercase: boolean;
-  includeNumbers: boolean;
-  includeSpecial: boolean;
-  minNumbers: number;
-  minSpecial: number;
-}) {
+}: PasswordOptions) {
   if (length <= 0) {
     return '';
   }
@@ -139,14 +137,8 @@ export default function GeneratorPage() {
   const [copied, setCopied] = useState(false);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const canGenerate = useMemo(
-    () =>
-      includeUppercase ||
-      includeLowercase ||
-      includeNumbers ||
-      includeSpecial,
-    [includeUppercase, includeLowercase, includeNumbers, includeSpecial]
-  );
+  const canGenerate =
+    includeUppercase || includeLowercase || includeNumbers || includeSpecial;
 
   useEffect(() => {
     setPassword(
@@ -179,58 +171,68 @@ export default function GeneratorPage() {
     };
   }, []);
 
-  function handleLengthChange(value: string) {
-    const nextLength = clampNumber(
-      Number.parseInt(value, 10),
-      MIN_LENGTH,
-      MAX_LENGTH
-    );
-    let nextMinNumbers = includeNumbers
-      ? Math.min(minNumbers, nextLength)
-      : 0;
-    let nextMinSpecial = includeSpecial
-      ? Math.min(minSpecial, nextLength - nextMinNumbers)
-      : 0;
+  const handleLengthChange = useCallback(
+    (value: string) => {
+      const nextLength = clampNumber(
+        Number.parseInt(value, 10),
+        MIN_LENGTH,
+        MAX_LENGTH
+      );
+      const nextMinNumbers = includeNumbers
+        ? Math.min(minNumbers, nextLength)
+        : 0;
+      const nextMinSpecial = includeSpecial
+        ? Math.min(minSpecial, nextLength - nextMinNumbers)
+        : 0;
 
-    if (!includeNumbers) {
-      nextMinNumbers = 0;
-    }
-    if (!includeSpecial) {
-      nextMinSpecial = 0;
-    }
+      setLength(nextLength);
+      setMinNumbers(nextMinNumbers);
+      setMinSpecial(nextMinSpecial);
+    },
+    [includeNumbers, includeSpecial, minNumbers, minSpecial]
+  );
 
-    setLength(nextLength);
-    setMinNumbers(nextMinNumbers);
-    setMinSpecial(nextMinSpecial);
-  }
+  const handleMinNumbersChange = useCallback(
+    (value: string) => {
+      const maxAllowed = includeNumbers ? length - minSpecial : 0;
+      const nextMinNumbers = clampNumber(
+        Number.parseInt(value, 10),
+        0,
+        maxAllowed
+      );
+      setMinNumbers(nextMinNumbers);
+    },
+    [includeNumbers, length, minSpecial]
+  );
 
-  function handleMinNumbersChange(value: string) {
-    const maxAllowed = includeNumbers ? length - minSpecial : 0;
-    const nextMinNumbers = clampNumber(Number.parseInt(value, 10), 0, maxAllowed);
-    setMinNumbers(nextMinNumbers);
-  }
+  const handleMinSpecialChange = useCallback(
+    (value: string) => {
+      const maxAllowed = includeSpecial ? length - minNumbers : 0;
+      const nextMinSpecial = clampNumber(
+        Number.parseInt(value, 10),
+        0,
+        maxAllowed
+      );
+      setMinSpecial(nextMinSpecial);
+    },
+    [includeSpecial, length, minNumbers]
+  );
 
-  function handleMinSpecialChange(value: string) {
-    const maxAllowed = includeSpecial ? length - minNumbers : 0;
-    const nextMinSpecial = clampNumber(Number.parseInt(value, 10), 0, maxAllowed);
-    setMinSpecial(nextMinSpecial);
-  }
-
-  function handleToggleNumbers(value: boolean) {
+  const handleToggleNumbers = useCallback((value: boolean) => {
     setIncludeNumbers(value);
     if (!value) {
       setMinNumbers(0);
     }
-  }
+  }, []);
 
-  function handleToggleSpecial(value: boolean) {
+  const handleToggleSpecial = useCallback((value: boolean) => {
     setIncludeSpecial(value);
     if (!value) {
       setMinSpecial(0);
     }
-  }
+  }, []);
 
-  function handleRegenerate() {
+  const handleRegenerate = useCallback(() => {
     setPassword(
       generatePassword({
         length,
@@ -243,9 +245,17 @@ export default function GeneratorPage() {
       })
     );
     setCopied(false);
-  }
+  }, [
+    length,
+    includeUppercase,
+    includeLowercase,
+    includeNumbers,
+    includeSpecial,
+    minNumbers,
+    minSpecial,
+  ]);
 
-  async function handleCopy() {
+  const handleCopy = useCallback(async () => {
     if (!password) {
       return;
     }
@@ -256,64 +266,75 @@ export default function GeneratorPage() {
       if (copyTimeoutRef.current) {
         clearTimeout(copyTimeoutRef.current);
       }
-      copyTimeoutRef.current = setTimeout(() => setCopied(false), 1500);
-    } catch {
+      copyTimeoutRef.current = setTimeout(
+        () => setCopied(false),
+        COPY_FEEDBACK_DURATION
+      );
+    } catch (error) {
+      console.error('Failed to copy password:', error);
       setCopied(false);
     }
-  }
+  }, [password]);
 
   return (
-    <FieldSet className="gap-5">
-      <Field>
-        <FieldLegend className="flex items-center gap-2 text-xl font-semibold">
-          <RectangleEllipsisIcon className="text-muted-foreground" />
+    <div className="w-full">
+      <div className="bg-background sticky top-0 z-10 flex gap-2 py-4">
+        <FieldLegend className="my-auto text-2xl font-bold tracking-tight">
           Generator
         </FieldLegend>
-      </Field>
-
-      <div className="rounded-xl border bg-card/80 p-4 shadow-xs">
-        <div className="relative">
-          <Input
-            readOnly
-            value={password}
-            className="pr-20 font-mono text-base"
-            aria-label="Generated password"
-            spellCheck={false}
-          />
-          <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="ghost"
-              onClick={handleRegenerate}
-              disabled={!canGenerate}
-              aria-label="Regenerate password"
-            >
-              <RefreshCwIcon />
-            </Button>
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="ghost"
-              onClick={handleCopy}
-              disabled={!password}
-              aria-label={copied ? 'Copied' : 'Copy password'}
-            >
-              {copied ? <CheckIcon /> : <CopyIcon />}
-            </Button>
-          </div>
-        </div>
       </div>
+      <FieldSet className="gap-6 pb-4">
+        <FieldGroup className="gap-4">
+          <Field>
+            <div className="bg-card/80 rounded-xl border p-4 shadow-xs">
+              <div className="relative">
+                <Input
+                  readOnly
+                  value={password}
+                  className="pr-20 font-mono text-base"
+                  aria-label="Generated password"
+                  spellCheck={false}
+                />
+                <div className="absolute top-1/2 right-2 flex -translate-y-1/2 items-center gap-1">
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    onClick={handleRegenerate}
+                    disabled={!canGenerate}
+                    aria-label="Regenerate password"
+                  >
+                    <RefreshCwIcon />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    onClick={handleCopy}
+                    disabled={!password}
+                    aria-label={copied ? 'Copied' : 'Copy password'}
+                  >
+                    {copied ? <CheckIcon /> : <CopyIcon />}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Field>
 
-      <FieldSet className="gap-4">
-        <FieldLegend className="text-sm font-semibold text-muted-foreground uppercase">
-          Options
-        </FieldLegend>
-
-        <div className="rounded-xl border bg-card/80 p-4 shadow-xs">
-          <FieldGroup className="gap-3">
-            <Field>
-              <FieldLabel htmlFor="password-length">Length</FieldLabel>
+          <Field>
+            <FieldLabel htmlFor="password-length">Length</FieldLabel>
+            <div className="flex items-center gap-4">
+              <Slider
+                value={[length]}
+                onValueChange={(values) =>
+                  handleLengthChange(values[0].toString())
+                }
+                min={MIN_LENGTH}
+                max={MAX_LENGTH}
+                step={1}
+                className="flex-1"
+                aria-label="Password length"
+              />
               <Input
                 id="password-length"
                 type="number"
@@ -321,57 +342,66 @@ export default function GeneratorPage() {
                 max={MAX_LENGTH}
                 value={length}
                 onChange={(event) => handleLengthChange(event.target.value)}
+                className="w-20"
               />
-              <FieldDescription>
-                Value must be between {MIN_LENGTH} and {MAX_LENGTH}. Use 14
-                characters or more to generate a strong password.
-              </FieldDescription>
-            </Field>
-          </FieldGroup>
-        </div>
+            </div>
+            <FieldDescription>
+              Value must be between {MIN_LENGTH} and {MAX_LENGTH}. Use 14
+              characters or more to generate a strong password.
+            </FieldDescription>
+          </Field>
 
-        <div className="rounded-xl border bg-card/80 p-4 shadow-xs">
-          <FieldTitle>Include</FieldTitle>
-          <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-            <Label className="gap-2 font-medium">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border border-input bg-background text-primary accent-primary"
-                checked={includeUppercase}
-                onChange={(event) => setIncludeUppercase(event.target.checked)}
-              />
-              A-Z
-            </Label>
-            <Label className="gap-2 font-medium">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border border-input bg-background text-primary accent-primary"
-                checked={includeLowercase}
-                onChange={(event) => setIncludeLowercase(event.target.checked)}
-              />
-              a-z
-            </Label>
-            <Label className="gap-2 font-medium">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border border-input bg-background text-primary accent-primary"
-                checked={includeNumbers}
-                onChange={(event) => handleToggleNumbers(event.target.checked)}
-              />
-              0-9
-            </Label>
-            <Label className="gap-2 font-medium">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border border-input bg-background text-primary accent-primary"
-                checked={includeSpecial}
-                onChange={(event) => handleToggleSpecial(event.target.checked)}
-              />
-              !@#$%^&*
-            </Label>
-          </div>
+          <Field>
+            <FieldLabel>Include</FieldLabel>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <Label className="gap-2 font-medium">
+                <input
+                  type="checkbox"
+                  className="border-input bg-background text-primary accent-primary h-4 w-4 rounded border"
+                  checked={includeUppercase}
+                  onChange={(event) =>
+                    setIncludeUppercase(event.target.checked)
+                  }
+                />
+                A-Z
+              </Label>
+              <Label className="gap-2 font-medium">
+                <input
+                  type="checkbox"
+                  className="border-input bg-background text-primary accent-primary h-4 w-4 rounded border"
+                  checked={includeLowercase}
+                  onChange={(event) =>
+                    setIncludeLowercase(event.target.checked)
+                  }
+                />
+                a-z
+              </Label>
+              <Label className="gap-2 font-medium">
+                <input
+                  type="checkbox"
+                  className="border-input bg-background text-primary accent-primary h-4 w-4 rounded border"
+                  checked={includeNumbers}
+                  onChange={(event) =>
+                    handleToggleNumbers(event.target.checked)
+                  }
+                />
+                0-9
+              </Label>
+              <Label className="gap-2 font-medium">
+                <input
+                  type="checkbox"
+                  className="border-input bg-background text-primary accent-primary h-4 w-4 rounded border"
+                  checked={includeSpecial}
+                  onChange={(event) =>
+                    handleToggleSpecial(event.target.checked)
+                  }
+                />
+                !@#$%^&*
+              </Label>
+            </div>
+          </Field>
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Field>
               <FieldLabel htmlFor="min-numbers">Minimum numbers</FieldLabel>
               <Input
@@ -399,12 +429,12 @@ export default function GeneratorPage() {
           </div>
 
           {!canGenerate && (
-            <FieldDescription className="mt-3 text-destructive">
+            <FieldDescription className="text-destructive">
               Select at least one character set to generate a password.
             </FieldDescription>
           )}
-        </div>
+        </FieldGroup>
       </FieldSet>
-    </FieldSet>
+    </div>
   );
 }
