@@ -14,13 +14,15 @@ import { VaultItem } from '@/types/vault';
 import { useForm } from '@tanstack/react-form';
 import {
   ArrowLeftIcon,
+  CheckIcon,
   EyeIcon,
   EyeOffIcon,
+  PencilIcon,
   PlusIcon,
   XIcon,
 } from 'lucide-react';
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { z } from 'zod';
 
 const formSchema = z.object({
@@ -41,6 +43,7 @@ interface VaultFormProps {
 export default function VaultForm({ mode, item, onSubmit }: VaultFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const isViewMode = mode === 'view';
+  const navigate = useNavigate();
 
   const form = useForm({
     defaultValues: {
@@ -58,6 +61,7 @@ export default function VaultForm({ mode, item, onSubmit }: VaultFormProps) {
         domains: value.domains.filter((d) => d.trim() !== ''),
       };
       onSubmit?.(cleanedValue);
+      navigate('/vault');
     },
   });
 
@@ -77,20 +81,33 @@ export default function VaultForm({ mode, item, onSubmit }: VaultFormProps) {
         }
       }}
     >
-      <div className="bg-background sticky top-0 z-10 flex gap-2 p-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          asChild
-          style={{ viewTransitionName: 'back-add-button' }}
-        >
-          <Link to=".." viewTransition>
-            <ArrowLeftIcon />
-          </Link>
-        </Button>
-        <FieldLegend className="my-auto text-2xl font-bold tracking-tight">
-          {title}
-        </FieldLegend>
+      <div className="bg-background sticky top-0 z-10 flex items-center justify-between p-4">
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            asChild
+            style={{ viewTransitionName: 'back-add-button' }}
+          >
+            <Link to=".." viewTransition>
+              <ArrowLeftIcon />
+            </Link>
+          </Button>
+          <FieldLegend className="my-auto text-2xl font-bold tracking-tight">
+            {title}
+          </FieldLegend>
+        </div>
+        {isViewMode ? (
+          <Button size="icon" asChild>
+            <Link to={`/vault/${item?.id}/edit`} viewTransition>
+              <PencilIcon />
+            </Link>
+          </Button>
+        ) : (
+          <Button type="submit" size="icon">
+            {mode === 'new' ? <PlusIcon /> : <CheckIcon />}
+          </Button>
+        )}
       </div>
       <FieldSet className="gap-6 px-4 pb-4">
         <FieldGroup className="gap-4">
@@ -230,21 +247,6 @@ export default function VaultForm({ mode, item, onSubmit }: VaultFormProps) {
               </Field>
             )}
           />
-
-          <Field className="flex gap-2 pt-3">
-            {!isViewMode && (
-              <Button type="submit" size="lg" className="font-semibold">
-                {mode === 'new' ? 'Add Item' : 'Save Changes'}
-              </Button>
-            )}
-            {isViewMode && (
-              <Button type="button" size="lg" className="font-semibold" asChild>
-                <Link to={`/vault/${item?.id}/edit`} viewTransition>
-                  Edit
-                </Link>
-              </Button>
-            )}
-          </Field>
         </FieldGroup>
       </FieldSet>
     </form>
