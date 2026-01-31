@@ -1,6 +1,364 @@
 export default defineContentScript({
-  matches: ['*://*.google.com/*'],
+  matches: ['<all_urls>'],
+  runAt: 'document_end',
+  world: 'ISOLATED',
   main() {
-    console.log('Hello content.');
+    console.log('PYTA: Content script loaded on:', window.location.href);
+
+    // Wait for body to be ready
+    if (document.body) {
+      initAutofill();
+    } else {
+      const bodyObserver = new MutationObserver(() => {
+        if (document.body) {
+          bodyObserver.disconnect();
+          initAutofill();
+        }
+      });
+      bodyObserver.observe(document.documentElement, { childList: true });
+    }
   },
 });
+
+function initAutofill() {
+  console.log('PYTA: initAutofill called');
+
+  // Detect forms on page load
+  detectAndAttachAutofill();
+
+  // Watch for dynamic form additions (modals, popups, etc)
+  const observer = new MutationObserver((mutations) => {
+    detectAndAttachAutofill();
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['type'],
+  });
+}
+
+function detectAndAttachAutofill() {
+  // Find password fields
+  const passwordFields = document.querySelectorAll<HTMLInputElement>(
+    'input[type="password"]'
+  );
+
+  passwordFields.forEach((passwordField) => {
+    // Skip if already has autofill attached
+    if (passwordField.dataset.pytaAutofill === 'true') return;
+    passwordField.dataset.pytaAutofill = 'true';
+
+    // Find associated username field (email or text input before password)
+    const usernameField = findUsernameField(passwordField);
+
+    console.log('Username field found:', usernameField);
+
+    if (usernameField) {
+      // Skip if username field already has dropdown attached
+      if (usernameField.dataset.pytaAttached === 'true') return;
+      attachAutofillDropdown(usernameField, passwordField);
+    }
+  });
+}
+
+function findUsernameField(
+  passwordField: HTMLInputElement
+): HTMLInputElement | null {
+  const form = passwordField.closest('form');
+  const searchScope = form || document;
+
+  // Look for email or text inputs (also check for autocomplete attributes)
+  const candidates = Array.from(
+    searchScope.querySelectorAll<HTMLInputElement>(
+      'input[type="email"], input[type="text"], input:not([type])'
+    )
+  );
+
+  console.log(`Found ${candidates.length} potential username fields`);
+
+  // Find the closest input before the password field
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    const candidate = candidates[i];
+
+    // Skip hidden inputs
+    if (candidate.offsetParent === null) continue;
+
+    if (
+      candidate.compareDocumentPosition(passwordField) &
+      Node.DOCUMENT_POSITION_FOLLOWING
+    ) {
+      console.log('Selected username field:', {
+        id: candidate.id,
+        name: candidate.name,
+        type: candidate.type,
+        placeholder: candidate.placeholder,
+      });
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+async function attachAutofillDropdown(
+  usernameField: HTMLInputElement,
+  passwordField: HTMLInputElement
+) {
+  // Disable browser autocomplete
+  usernameField.setAttribute('autocomplete', 'off');
+  passwordField.setAttribute('autocomplete', 'off');
+  usernameField.setAttribute('data-pyta-attached', 'true');
+  passwordField.setAttribute('data-pyta-attached', 'true');
+
+  // Get matching credentials for current domain
+  const credentials = await getMatchingCredentials();
+
+  if (credentials.length === 0) return;
+
+  // Create and show dropdown on focus
+  const showDropdown = (e: FocusEvent) => {
+    e.stopPropagation();
+    showAutofillDropdown(usernameField, passwordField, credentials);
+  };
+
+  usernameField.addEventListener('focus', showDropdown);
+  passwordField.addEventListener('focus', showDropdown);
+}
+
+async function getMatchingCredentials() {
+  try {
+    const currentDomain = extractDomain(window.location.href);
+    if (!currentDomain) return [];
+
+    console.log('PYTA: Current domain:', currentDomain);
+
+    // Get vault from storage (already decrypted)
+    const vaultData = await storage.getItem('local:vault');
+
+    if (!vaultData) {
+      console.log('PYTA: No vault data found in storage');
+      return [];
+    }
+
+    // Vault items are already decrypted in storage
+    const vault = vaultData as any[];
+    console.log('PYTA: Found', vault.length, 'vault items');
+
+    // Filter matching items
+    const matchingItems = vault.filter((item) => {
+      if (item.deleted_at) return false;
+      return item.domains.some((domain: string) => {
+        const normalizedDomain = normalizeDomain(domain);
+        return normalizedDomain === currentDomain;
+      });
+    });
+
+    console.log('PYTA: Found', matchingItems.length, 'matching credentials');
+    return matchingItems;
+  } catch (error) {
+    console.error('Error getting credentials:', error);
+    return [];
+  }
+}
+
+function extractDomain(url: string): string | null {
+  try {
+    const urlObj = new URL(url);
+    return normalizeDomain(urlObj.hostname);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeDomain(domain: string): string {
+  return domain.toLowerCase().replace(/^www\./, '');
+}
+
+function showAutofillDropdown(
+  usernameField: HTMLInputElement,
+  passwordField: HTMLInputElement,
+  credentials: any[]
+) {
+  // Remove existing dropdown if any
+  removeExistingDropdown();
+
+  // Get current domain to display in dropdown
+  const currentDomain = extractDomain(window.location.href);
+
+  // Create dropdown
+  const dropdown = createDropdown(credentials, usernameField, passwordField, currentDomain);
+
+  // Position dropdown below username field
+  positionDropdown(dropdown, usernameField);
+
+  // Append to body
+  document.body.appendChild(dropdown);
+
+  console.log('PYTA: Dropdown appended to body', dropdown);
+
+  // Close on click outside - delay to avoid immediate close from focus click
+  setTimeout(() => {
+    document.addEventListener('click', handleClickOutside, true);
+  }, 200);
+}
+
+function createDropdown(
+  credentials: any[],
+  usernameField: HTMLInputElement,
+  passwordField: HTMLInputElement,
+  currentDomain: string | null
+): HTMLElement {
+  const dropdown = document.createElement('div');
+  dropdown.id = 'pyta-autofill-dropdown';
+  dropdown.style.cssText = `
+    position: fixed !important;
+    z-index: 2147483647 !important;
+    background: #1e1e1e !important;
+    border: 1px solid #3e3e3e !important;
+    border-radius: 6px !important;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4) !important;
+    max-height: 180px !important;
+    overflow-y: auto !important;
+    min-width: 200px !important;
+    font-family: system-ui, -apple-system, sans-serif !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  `;
+
+  credentials.forEach((credential, index) => {
+    const item = document.createElement('div');
+    item.style.cssText = `
+      padding: 10px 12px !important;
+      cursor: pointer !important;
+      border-bottom: ${index < credentials.length - 1 ? '1px solid #3e3e3e' : 'none'} !important;
+      transition: background 0.2s !important;
+      display: block !important;
+      box-sizing: border-box !important;
+      background: #1e1e1e !important;
+    `;
+
+    // Find the matching domain to display, default to first if not found
+    let displayDomain = credential.domains[0] || '';
+    if (currentDomain) {
+      const matchingDomain = credential.domains.find((domain: string) => {
+        return normalizeDomain(domain) === currentDomain;
+      });
+      if (matchingDomain) {
+        displayDomain = matchingDomain;
+      }
+    }
+
+    item.innerHTML = `
+      <div style="font-weight: 500; font-size: 14px; color: #e0e0e0; margin-bottom: 4px;">${escapeHtml(credential.username_data)}</div>
+      <div style="font-size: 12px; color: #a0a0a0;">${escapeHtml(displayDomain)}</div>
+    `;
+
+    item.addEventListener('mouseenter', () => {
+      item.style.setProperty('background', '#2d2d2d', 'important');
+    });
+
+    item.addEventListener('mouseleave', () => {
+      item.style.setProperty('background', '#1e1e1e', 'important');
+    });
+
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      fillCredentials(usernameField, passwordField, credential);
+      removeExistingDropdown();
+    });
+
+    dropdown.appendChild(item);
+  });
+
+  return dropdown;
+}
+
+function positionDropdown(dropdown: HTMLElement, field: HTMLInputElement) {
+  const rect = field.getBoundingClientRect();
+  dropdown.style.top = `${rect.bottom + 2}px`;
+  dropdown.style.left = `${rect.left}px`;
+  dropdown.style.width = `${rect.width}px`;
+}
+
+function fillCredentials(
+  usernameField: HTMLInputElement,
+  passwordField: HTMLInputElement,
+  credential: any
+) {
+  console.log('PYTA: Filling credentials', {
+    username: credential.username_data,
+    usernameField: usernameField,
+    passwordField: passwordField,
+    usernameVisible: usernameField.offsetParent !== null,
+    passwordVisible: passwordField.offsetParent !== null,
+  });
+
+  // Use native setter to bypass React/framework controls
+  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+    window.HTMLInputElement.prototype,
+    'value'
+  )?.set;
+
+  // Fill username field
+  usernameField.focus();
+  if (nativeInputValueSetter) {
+    nativeInputValueSetter.call(usernameField, credential.username_data);
+  } else {
+    usernameField.value = credential.username_data;
+  }
+  usernameField.dispatchEvent(new Event('input', { bubbles: true }));
+  usernameField.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));
+  usernameField.dispatchEvent(new Event('change', { bubbles: true }));
+
+  // Small delay before filling password field
+  setTimeout(() => {
+    passwordField.focus();
+    if (nativeInputValueSetter) {
+      nativeInputValueSetter.call(passwordField, credential.password_data);
+    } else {
+      passwordField.value = credential.password_data;
+    }
+    passwordField.dispatchEvent(new Event('input', { bubbles: true }));
+    passwordField.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));
+    passwordField.dispatchEvent(new Event('change', { bubbles: true }));
+  }, 50);
+}
+
+function removeExistingDropdown() {
+  const existing = document.getElementById('pyta-autofill-dropdown');
+  if (existing) {
+    existing.remove();
+    document.removeEventListener('click', handleClickOutside, true);
+  }
+}
+
+function handleClickOutside(e: MouseEvent) {
+  const dropdown = document.getElementById('pyta-autofill-dropdown');
+  const target = e.target as Node;
+
+  // Don't close if clicking inside dropdown or on input fields
+  if (dropdown && !dropdown.contains(target)) {
+    // Check if click is on username or password field
+    const inputs = document.querySelectorAll('[data-pyta-autofill="true"]');
+    let isInputClick = false;
+    inputs.forEach((input) => {
+      if (input === target || input.contains(target)) {
+        isInputClick = true;
+      }
+    });
+
+    if (!isInputClick) {
+      removeExistingDropdown();
+    }
+  }
+}
+
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
