@@ -1,3 +1,7 @@
+import './autofill.css';
+
+import type { VaultItem } from '@/types/vault';
+
 export default defineContentScript({
   matches: ['<all_urls>'],
   runAt: 'document_end',
@@ -127,7 +131,7 @@ async function attachAutofillDropdown(
   passwordField.addEventListener('focus', showDropdown);
 }
 
-async function getMatchingCredentials() {
+async function getMatchingCredentials(): Promise<VaultItem[]> {
   try {
     const currentDomain = extractDomain(window.location.href);
     if (!currentDomain) return [];
@@ -143,13 +147,13 @@ async function getMatchingCredentials() {
     }
 
     // Vault items are already decrypted in storage
-    const vault = vaultData as any[];
+    const vault = vaultData as VaultItem[];
     console.log('PYTA: Found', vault.length, 'vault items');
 
     // Filter matching items
     const matchingItems = vault.filter((item) => {
       if (item.deleted_at) return false;
-      return item.domains.some((domain: string) => {
+      return item.domains.some((domain) => {
         const normalizedDomain = normalizeDomain(domain);
         return normalizedDomain === currentDomain;
       });
@@ -179,7 +183,7 @@ function normalizeDomain(domain: string): string {
 function showAutofillDropdown(
   usernameField: HTMLInputElement,
   passwordField: HTMLInputElement,
-  credentials: any[]
+  credentials: VaultItem[]
 ) {
   // Remove existing dropdown if any
   removeExistingDropdown();
@@ -205,45 +209,22 @@ function showAutofillDropdown(
 }
 
 function createDropdown(
-  credentials: any[],
+  credentials: VaultItem[],
   usernameField: HTMLInputElement,
   passwordField: HTMLInputElement,
   currentDomain: string | null
 ): HTMLElement {
   const dropdown = document.createElement('div');
   dropdown.id = 'pyta-autofill-dropdown';
-  dropdown.style.cssText = `
-    position: fixed !important;
-    z-index: 2147483647 !important;
-    background: #1e1e1e !important;
-    border: 1px solid #3e3e3e !important;
-    border-radius: 6px !important;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4) !important;
-    max-height: 180px !important;
-    overflow-y: auto !important;
-    min-width: 200px !important;
-    font-family: system-ui, -apple-system, sans-serif !important;
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-  `;
 
-  credentials.forEach((credential, index) => {
+  credentials.forEach((credential) => {
     const item = document.createElement('div');
-    item.style.cssText = `
-      padding: 10px 12px !important;
-      cursor: pointer !important;
-      border-bottom: ${index < credentials.length - 1 ? '1px solid #3e3e3e' : 'none'} !important;
-      transition: background 0.2s !important;
-      display: block !important;
-      box-sizing: border-box !important;
-      background: #1e1e1e !important;
-    `;
+    item.className = 'pyta-dropdown-item';
 
     // Find the matching domain to display, default to first if not found
     let displayDomain = credential.domains[0] || '';
     if (currentDomain) {
-      const matchingDomain = credential.domains.find((domain: string) => {
+      const matchingDomain = credential.domains.find((domain) => {
         return normalizeDomain(domain) === currentDomain;
       });
       if (matchingDomain) {
@@ -251,18 +232,16 @@ function createDropdown(
       }
     }
 
-    item.innerHTML = `
-      <div style="font-weight: 500; font-size: 14px; color: #e0e0e0; margin-bottom: 4px;">${escapeHtml(credential.username_data)}</div>
-      <div style="font-size: 12px; color: #a0a0a0;">${escapeHtml(displayDomain)}</div>
-    `;
+    const usernameDiv = document.createElement('div');
+    usernameDiv.className = 'pyta-dropdown-username';
+    usernameDiv.textContent = credential.username_data;
 
-    item.addEventListener('mouseenter', () => {
-      item.style.setProperty('background', '#2d2d2d', 'important');
-    });
+    const domainDiv = document.createElement('div');
+    domainDiv.className = 'pyta-dropdown-domain';
+    domainDiv.textContent = displayDomain;
 
-    item.addEventListener('mouseleave', () => {
-      item.style.setProperty('background', '#1e1e1e', 'important');
-    });
+    item.appendChild(usernameDiv);
+    item.appendChild(domainDiv);
 
     item.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -287,7 +266,7 @@ function positionDropdown(dropdown: HTMLElement, field: HTMLInputElement) {
 function fillCredentials(
   usernameField: HTMLInputElement,
   passwordField: HTMLInputElement,
-  credential: any
+  credential: VaultItem
 ) {
   console.log('PYTA: Filling credentials', {
     username: credential.username_data,
@@ -355,10 +334,4 @@ function handleClickOutside(e: MouseEvent) {
       removeExistingDropdown();
     }
   }
-}
-
-function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }

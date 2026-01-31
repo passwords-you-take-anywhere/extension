@@ -1,0 +1,48 @@
+#pyta-autofill-dropdown {
+  position: fixed !important;
+  z-index: 2147483647 !important;
+  background-color: #171717 !important; /* neutral-900 */
+  border: 1px solid #404040 !important; /* neutral-700 */
+  border-radius: 0.5rem !important; /* rounded-lg */
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1) !important; /* shadow-lg */
+  max-height: 12rem !important; /* max-h-48 */
+  overflow-y: auto !important;
+  min-width: 12rem !important; /* min-w-48 */
+  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji" !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.pyta-dropdown-item {
+  padding: 0.625rem 0.75rem !important; /* py-2.5 px-3 */
+  cursor: pointer !important;
+  transition-property: background-color !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition-duration: 150ms !important;
+  display: block !important;
+  box-sizing: border-box !important;
+  background-color: #171717 !important; /* neutral-900 */
+}
+
+.pyta-dropdown-item:not(:last-child) {
+  border-bottom: 1px solid #404040 !important; /* neutral-700 */
+}
+
+.pyta-dropdown-item:hover {
+  background-color: #262626 !important; /* neutral-800 */
+}
+
+.pyta-dropdown-username {
+  font-weight: 500 !important; /* font-medium */
+  font-size: 0.875rem !important; /* text-sm */
+  line-height: 1.25rem !important;
+  color: #e5e5e5 !important; /* neutral-200 */
+  margin-bottom: 0.25rem !important; /* mb-1 */
+}
+
+.pyta-dropdown-domain {
+  font-size: 0.75rem !important; /* text-xs */
+  line-height: 1rem !important;
+  color: #a3a3a3 !important; /* neutral-400 */
+}
